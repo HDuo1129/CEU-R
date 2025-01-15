@@ -234,3 +234,171 @@ ls(all.names = TRUE)
 library(data.table)
 bookings <- fread('http://bit.ly/CEU-R-hotels-2018-prices')
 features <- fread('http://bit.ly/CEU-R-hotels-2018-features')
+## TODO count the number of bookings below 100 EUR
+bookings[price < 100, .N]
+## TODO count the number of bookings below 100 EUR without an offer
+bookings[price < 100 & offer == 0, .N]
+## TODO compute the average price of the bookings below 100 EUR
+bookings[price < 100, mean(price)]
+## TODO compute the average price of bookings on weekends
+bookings[weekend == 1, mean(price)]
+## TODO compute the average price of bookings on weekdays
+bookings[weekend == 0, mean(price)]
+## TODO include nnights, holiday and year as well in the aggregate variables
+bookings[ ,list(avg_price = mean(price)), by = list(weekend, nnights, holiday, year)]
+## TODO avg price per number of stars
+bookings[1]
+bookings[hotel_id == 1]
+features[hotel_id == 1]
+## join
+merge(bookings, features)[ , mean(price), by = stars]
+## miss 3 rows?
+bookings[hotel_id %in% features$hotel_id]
+features[hotel_id == 2]
+
+merge(bookings, features)
+merge(bookings, features, all = TRUE)
+
+merge(bookings, features)[, .(price = mean(price)), by = stars][order(stars)]
+merge(bookings, features)[, .(.N, price = mean(price)), by = stars][order(stars)]
+
+library(ggplot2)
+ggplot(merge(bookings, features)[stars == 2.5], aes(price)) + geom_boxplot()
+merge(bookings, features)[stars == 2.5][, mean(price), by = nnights]
+
+dt <- merge(bookings, features)
+dt$price_per_night <- dt$price / dt$nnights
+dt[, price_per_night := price / nnights]
+dt[, mean(price_per_night), by = stars][order(stars)]
+dt[, weighted.mean(price_per_night, nnights), by = stars][order(stars)]
+
+## TODO hotels dataset: features + avg price of a night
+hotels <- merge(features, bookings[, .(price_per_night = mean(price / nnights), bookings = .N), by = hotel_id])
+hotels[, weighted.mean(price_per_night, bookings), by = stars][order(stars)]
+
+## TODO dataviz on avg price per nights per stars
+dta <- hotels[, weighted.mean(price_per_night, bookings), by = stars][order(stars)]
+ggplot(dta, aes(stars, V1)) + geom_point()
+ggplot(dta, aes(factor(stars), V1)) + geom_point() + xlab("Number of Stars")
+
+## TODO dataviz on avg price per nights per stars split by country 
+dta <- hotels[!is.na(stars), weighted.mean(price_per_night, bookings), by = .(stars, country)][order(stars)]
+ggplot(dta, aes(factor(stars), V1)) + geom_point() + xlab("Number of stars") + facet_wrap(~country, scales="free")
+
+## TODO aggregated dataset by country : avg price, ratings, stars
+countries <- hotels[, .( price = mean(price_per_night, na.rm = TRUE), 
+  ratings = mean(rating, na.rm = TRUE), stars = mean(stars, na.rm = TRUE)), by = country]
+
+## TODO list countries with above avg rating
+avg_rating <- mean(countries$ratings, na.rm = TRUE)
+countries[ratings > mean(ratings, na.rm = TRUE)]
+
+hotels[, pricecat := cut(price_per_night, 3)]
+hotels[, .N, by = pricecat]
+
+hotels[, pricecat := cut(price_per_night, c(0, 100, 250, Inf))]
+hotels[, .N, by = pricecat]
+
+hotels[, pricecat := cut(price_per_night, c(0, 100, 250, Inf), labels = c("cheap", "avg", "expensive"))]
+hotels[, .N, by = pricecat]
+
+quantile(hotels$price_per_night, c(1/3, 2/3))
+
+lower <- quantile(hotels$price_per_night, c(1/3))
+upper <- quantile(hotels$price_per_night, c(2/3))
+hotels[, pricecat := cut(price_per_night, quantile(price_per_night, c(0, 1/3, 2/3, 1),  Inf), labels = c("cheap", "avg", "expensive"))]
+hotels[, .N, by = pricecat]
+
+hotels[, lower := quantile(price_per_night, 1/3), by = country]
+hotels[, lower := quantile(price_per_night, 2/3), by = country]
+rm(lower)
+rm(upper)
+hotels[, pricecat := cut(price_per_night, c(0, lower, upper, Inf), labels = c("cheap", "avg", "expensive")), by = country]
+hotels[, pricecat := cut(price_per_night, c(0, lower[1], upper[1], Inf), labels = c("cheap", "avg", "expensive")), by = country]
+hotels[, .(0, lower[1], upper[1], Inf), by = country]
+
+cut(hotels[country == "Netherlands", price_per_night], c(0, lower[1], upper[1], Inf))
+
+hotels[upper != lower, pricecat := cut(price_per_night, c(0, lower[1], upper[1], Inf), 
+                                       labels = c("cheap", "avg", "expensive")), by = country]
+hotels[upper != lower, .(0, lower[1], upper[1], Inf), by = country]
+
+hotels[, pricecat := NULL]
+hotels[upper != lower, pricecat := cut(price_per_night, c(0, lower[1], upper[1], Inf), 
+                                       labels = c("cheap", "avg", "expensive")), by = country]
+
+## TODO data.table with x (1:100), y(1:100), color colums (red/white)
+points <- data.table(x = 1:100, y = 1:100)
+points <- data.table(x = rep(1:100, 100), y = rep(1:100, each = 100), col = "white")
+points[x == 50 & y == 50, col := "red"]
+plot(points$x, points$y, col = points$col, pch =19)
+library(ggplot2)
+ggplot(points, aes(x, y, color = col) + geom_point() + theme_bw())
+
+points <- data.table(x = rep(1:100, 100), y = rep(1:100, each = 100), col = "white")
+points[x == 50 & y == 50, col := "red"]
+library(ggplot2)
+ggplot(points, aes(x, y, color = col)) + geom_point() + theme_void() +
+  scale_color_manual(values = c("red", "white")) +
+  theme(legend.position = 'none')
+
+
+
+points <- data.table(x = rep(1:100, 100), y = rep(1:100, each = 100), col = "white")
+points[x == 50 & y == 50, col := "red"]
+library(ggplot2)
+ggplot(points, aes(x, y, color = col)) + geom_point() + theme_void() +
+  scale_color_manual(values = c("red", "white")) +
+  theme(legend.position = 'none')
+
+
+## TODO model: col -x + y
+fit <- lm(col - x + y, data = points)
+
+
+library(rpart)
+fit <- rpart(col ~ x + y, data = points)
+fit
+plot(fit)
+text(fit)
+
+table(points$col)
+library(rpart)
+fit <- rpart(col ~ x + y, data = points, control = rpart.control(minsplit = 2, cp = 0.001))
+plot(fit)
+text(fit)
+
+library(rpart)
+fit <- rpart(col ~ x + y, points)
+fit
+plot(fit)
+text(fit)
+points$pred <- predict(fit, type = "class")
+ggplot(points, aes(x, y, color = pred)) + geom_point() + theme_void() +
+  scale_color_manual(values = c("red", "white")) +
+  theme(legend.position = 'none')
+
+ggplot(points, aes(x, y)) + 
+  geom_tile(aes(fill = pred)) +
+  geom_tile(aes(fill = col), alpha = 0.5) +
+  theme_void() +
+  scale_fill_manual(values = c("red", "white")) +
+  theme(legend.position = 'none')
+
+
+library(partykit)
+plot(as.party(fit))
+fit <- rpart(col ~ x + y, points, control = )
+
+library(randomForest)
+points$pred <- predict(fit, type = "class")
+ggplot(points, aes(x, y)) + 
+  geom_tile(aes(fill = pred)) +
+  geom_tile(aes(fill = col), alpha = 0.5) +
+  theme_void() +
+  scale_fill_manual(values = c("red", "white")) +
+  theme(legend.position = 'none')
+fit <- rpart(col ~ x + y, points, control = )
+fit
+
+
