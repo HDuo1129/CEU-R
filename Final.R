@@ -174,20 +174,20 @@ ggplot(scores_long, aes(x = problem, y = score, fill = problem)) +
   scale_fill_brewer(palette = "Pastel1")  # 使用 Pastel1 色板提供颜色
 
 
-# 分析团队大小与金牌数的关系
+# Percentage of Female Players and Number of Gold Medals
 country[, female_share := team_size_female / team_size_all]
-team_size_vs_gold <- country[, .(
-  female_share,
-  awards_gold
-), by = country]
+team_size_vs_gold <- country[, .(female_share, awards_gold), by = country]
 
-# 绘制散点图
 ggplot(country, aes(x = female_share, y = awards_gold)) +
-  geom_point(size=3) +
-  geom_smooth(method = "lm", se = FALSE) + 
+  geom_point(size=3, aes(color = female_share, size = awards_gold), alpha=0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") + 
   labs(title = "团队规模与金牌数量的关系", x = "平均团队规模", y = "金牌数量") +
+  scale_size_continuous(range = c(1, 5), guide = "none") +  # 调整点的大小并隐藏图例
+  scale_color_gradient(low = "blue", high = "red") +  # 添加颜色渐变
   theme_minimal() +
-  scale_color_brewer(palette = "Set3")
+  theme(legend.position = "none")  # 如果不需要图例可以关闭
+
+
 
 # 中国研究
 china_data <- country[country == "People's Republic of China"]
